@@ -223,6 +223,7 @@ async function initApp() {
   bindBooth();
   bindGlossary();
   bindDownload();
+  bindMap();
 }
 
 function bindNavigation() {
@@ -419,45 +420,78 @@ async function sendQuestion(question) {
   const input = document.getElementById('chat-input');
   if (input) input.value = '';
 
-  // Hide pills after first question
+  // Collapse pills after first question; show a compact 'new question' chip
   const pills = document.getElementById('chat-pills');
-  if (pills) pills.style.display = 'none';
+  if (pills && pills.style.display !== 'none') {
+    pills.style.display = 'none';
+    const newQChip = document.createElement('div');
+    newQChip.id = 'new-q-row';
+    newQChip.style.cssText = 'padding:.5rem 1.25rem;';
+    newQChip.innerHTML = '<button class="cpill" id="show-pills-btn">💡 Quick questions</button>';
+    pills.parentNode.insertBefore(newQChip, pills);
+    document.getElementById('show-pills-btn')?.addEventListener('click', () => {
+      pills.style.display = 'flex';
+      newQChip.remove();
+    });
+  }
 
   appendBubble(question, 'user');
+
+  // Record user turn in history
+  State.chatHistory.push({ role: 'user', text: question });
 
   // Typing indicator
   const typingId = 'typing-' + Date.now();
   appendTyping(typingId);
 
-  const data = await post('/api/chat', { question });
+  // Send last 6 turns for conversational context
+  const history = State.chatHistory.slice(-7, -1);
+  const data = await post('/api/chat', { question, history });
 
   document.getElementById(typingId)?.remove();
 
-  if (data?.answer) {
-    appendBubble(data.answer, 'ai');
-  } else {
-    appendBubble('Sorry, I couldn\'t reach the server. Check your connection and try again.', 'ai');
-  }
+  const answer = data?.answer || 'Sorry, I couldn\'t reach the server. Check your connection and try again.';
+
+  // Record AI turn
+  State.chatHistory.push({ role: 'model', text: answer });
+
+  appendBubble(answer, 'ai', true);
 }
 
-function appendBubble(text, role) {
+function appendBubble(text, role, animate = false) {
   const msgs = document.getElementById('chat-msgs');
   if (!msgs) return;
 
   const div = document.createElement('div');
   div.className = `bubble-row ${role}`;
 
-  const formatted = text.replace(/\n/g, '<br>');
-
   if (role === 'ai') {
-    div.innerHTML = `
-      <div class="bubble-av">⚡</div>
-      <div class="bubble-txt">${formatted}</div>`;
+    const txtEl = document.createElement('div');
+    txtEl.className = 'bubble-txt';
+    div.innerHTML = '<div class="bubble-av">⚡</div>';
+    div.appendChild(txtEl);
+    msgs.appendChild(div);
+
+    if (animate && text.length > 0) {
+      // Word-by-word reveal for a streaming feel
+      const words = text.split(' ');
+      let i = 0;
+      const tick = () => {
+        if (i < words.length) {
+          txtEl.innerHTML = words.slice(0, ++i).join(' ').replace(/\n/g, '<br>');
+          scrollChat();
+          setTimeout(tick, 22 + Math.random() * 18);
+        }
+      };
+      tick();
+    } else {
+      txtEl.innerHTML = text.replace(/\n/g, '<br>');
+    }
   } else {
-    div.innerHTML = `<div class="bubble-txt">${formatted}</div>`;
+    div.innerHTML = `<div class="bubble-txt">${text.replace(/\n/g, '<br>')}</div>`;
+    msgs.appendChild(div);
   }
 
-  msgs.appendChild(div);
   scrollChat();
 }
 
@@ -486,6 +520,11 @@ function bindBooth() {
   document.getElementById('booth-input')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') findBooth();
   });
+  document.getElementById('locate-btn')?.addEventListener('click', () => {
+    const input = document.getElementById('booth-input');
+    if (input) input.value = 'Mumbai'; // Defaulting to a simulated city since geolocation takes a while
+    findBooth();
+  });
 }
 
 async function findBooth() {
@@ -508,7 +547,7 @@ async function findBooth() {
         <div class="booth-dist">📏 ${b.distance}</div>
         <div class="booth-verified">✓ ECI Verified Data</div>
         <div class="booth-actions">
-          <button class="btn-ghost" onclick="showToast('Opening directions…')">🗺️ Get Directions</button>
+          <button class="btn-ghost" onclick="openMap('${b.name.replace(/'/g, "\\'")}', '${b.name.replace(/'/g, "\\'")}, ${b.address.replace(/'/g, "\\'")}')">🗺️ Get Directions</button>
           <button class="btn-ghost" onclick="showToast('⏰ Reminder set for Election Day!')">⏰ Set Reminder</button>
           <button class="btn-ghost" onclick="showToast('📋 Booth saved to checklist!')">📋 Save to Checklist</button>
         </div>
@@ -572,6 +611,48 @@ function updateDeadline() {
   // Demo: fixed 12 days — in production, fetch from API
   const el = document.getElementById('dl-count');
   if (el) el.textContent = '12 days';
+}
+
+/* ── MAP MODAL ──────────────────────────────────────────── */
+function openMap(name, locationQuery) {
+  const modal = document.getElementById('map-modal');
+  const overlay = document.getElementById('map-overlay');
+  const iframe = document.getElementById('map-iframe');
+  const title = document.getElementById('map-modal-title');
+  const dirLink = document.getElementById('map-directions-link');
+
+  if (title) title.textContent = name;
+  if (modal) modal.style.display = 'flex';
+  if (overlay) overlay.style.display = 'block';
+
+  setTimeout(() => {
+    if (modal) modal.classList.add('show');
+    if (overlay) overlay.classList.add('show');
+  }, 10);
+
+  const query = encodeURIComponent(locationQuery);
+  if (iframe) iframe.src = `https://maps.google.com/maps?q=${query}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+  if (dirLink) dirLink.href = `https://www.google.com/maps/dir/?api=1&destination=${query}`;
+}
+
+function closeMap() {
+  const modal = document.getElementById('map-modal');
+  const overlay = document.getElementById('map-overlay');
+  
+  if (modal) modal.classList.remove('show');
+  if (overlay) overlay.classList.remove('show');
+
+  setTimeout(() => {
+    if (modal) modal.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+    const iframe = document.getElementById('map-iframe');
+    if (iframe) iframe.src = '';
+  }, 400);
+}
+
+function bindMap() {
+  document.getElementById('map-close')?.addEventListener('click', closeMap);
+  document.getElementById('map-overlay')?.addEventListener('click', closeMap);
 }
 
 /* ── BOOT ───────────────────────────────────────────────── */

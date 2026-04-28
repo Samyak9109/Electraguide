@@ -5,240 +5,258 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#060f0a">
+  <meta name="theme-color" content="#002ba6">
   <meta name="description" content="ElectraGuide — AI-powered election assistant. Your democracy navigator.">
   <title>ElectraGuide — Your Democracy Navigator</title>
-
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,300;1,9..144,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════
+<!-- ═══════════════════════════════════════════════════
      SPLASH SCREEN
-════════════════════════════════════════════════════════════ -->
+════════════════════════════════════════════════════ -->
 <div id="splash" class="screen active">
-  <div class="splash-orb orb-1"></div>
-  <div class="splash-orb orb-2"></div>
+  <div class="splash-bg">
+    <div class="splash-orb splash-orb-1"></div>
+    <div class="splash-orb splash-orb-2"></div>
+    <div class="splash-orb splash-orb-3"></div>
+  </div>
   <div class="splash-content">
-    <div class="splash-logo">
-      <div class="logo-bolt">⚡</div>
-      <h1 class="logo-word">Electra<span>Guide</span></h1>
-      <p class="tagline">Your Democracy Navigator</p>
+    <div class="splash-brand">
+      <div class="splash-icon">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <path d="M20 4L28 16H12L20 4Z" fill="white" opacity="0.9"/>
+          <path d="M20 36L12 24H28L20 36Z" fill="white" opacity="0.6"/>
+          <circle cx="20" cy="20" r="4" fill="white"/>
+        </svg>
+      </div>
+      <h1 class="splash-title">Electra<span>Guide</span></h1>
+      <p class="splash-tagline">Your Democracy Navigator</p>
     </div>
-    <div class="splash-footer">
-      <button class="btn-primary full" id="start-btn">Get Started →</button>
-      <a class="skip-link" id="skip-link">Already set up? Skip to dashboard</a>
+    <div class="splash-cards">
+      <div class="splash-feature">
+        <span class="sf-icon">🗳️</span>
+        <span>Step-by-step voting guide</span>
+      </div>
+      <div class="splash-feature">
+        <span class="sf-icon">🤖</span>
+        <span>AI-powered civic assistant</span>
+      </div>
+      <div class="splash-feature">
+        <span class="sf-icon">📍</span>
+        <span>Find your nearest booth</span>
+      </div>
+    </div>
+    <div class="splash-actions">
+      <button class="btn-cta" id="start-btn">Get Started →</button>
+      <button class="btn-ghost-white" id="skip-link">Already set up? Skip</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     ONBOARDING QUIZ
-════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════
+     ONBOARDING
+════════════════════════════════════════════════════ -->
 <div id="onboard" class="screen">
-  <div class="onboard-inner">
-    <div class="ob-topbar">
-      <button class="icon-btn" id="ob-back">←</button>
-      <div class="step-dots" id="step-dots"></div>
+  <div class="onboard-wrap">
+    <div class="ob-header">
+      <button class="icon-btn-light" id="ob-back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="ob-steps" id="step-dots"></div>
       <div style="width:36px"></div>
     </div>
     <div id="quiz-stage"></div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     MAIN APP SHELL (all tabs live here)
-════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════════ -->
 <div id="app" class="screen">
 
-  <!-- Desktop sidebar -->
-  <aside class="sidebar">
-    <div class="sidebar-logo">
-      <span class="sb-bolt">⚡</span>
-      <span class="sb-name">ElectraGuide</span>
+  <!-- Top bar -->
+  <header class="topbar glass-nav">
+    <div class="topbar-brand">
+      <div class="tb-icon">⚡</div>
+      <span class="tb-name">ElectraGuide</span>
     </div>
-    <nav class="sb-nav">
-      <button class="sb-item active" data-tab="home">🏠 <span>Dashboard</span></button>
-      <button class="sb-item" data-tab="checklist">📋 <span>Checklist</span></button>
-      <button class="sb-item" data-tab="chat">💬 <span>Ask AI</span></button>
-      <button class="sb-item" data-tab="booth">📍 <span>Find Booth</span></button>
-      <button class="sb-item" data-tab="glossary">📖 <span>Glossary</span></button>
-    </nav>
-    <div class="sb-footer">
-      <div class="sb-user-card" id="sb-user-card">
-        <div class="sb-avatar" id="sb-avatar">V</div>
-        <div>
-          <div class="sb-uname" id="sb-uname">Voter</div>
-          <div class="sb-ustatus" id="sb-ustatus">Setting up…</div>
-        </div>
-      </div>
-      <div class="sb-verified">✓ Non-partisan · ECI verified data</div>
+    <div class="topbar-right">
+      <div class="avatar-chip" id="tb-avatar">V</div>
     </div>
-  </aside>
+  </header>
 
-  <!-- Main content area -->
-  <main class="main-content">
+  <!-- Tab content -->
+  <main class="app-main" id="app-main">
 
-    <!-- ── TAB: HOME ──────────────────────────────────── -->
+    <!-- HOME TAB -->
     <div class="tab active" id="tab-home">
       <div class="tab-scroll">
-        <div class="page-header">
-          <div>
-            <p class="greeting-label" id="home-greeting">Good morning,</p>
-            <h2 class="page-title" id="home-username">Voter</h2>
+
+        <!-- Hero greeting -->
+        <div class="hero-section">
+          <div class="hero-text">
+            <p class="hero-greeting" id="home-greeting">Good morning,</p>
+            <h2 class="hero-name" id="home-username">Voter</h2>
+            <p class="hero-sub">Let's get you election-ready.</p>
           </div>
-          <div class="header-avatar" id="home-avatar">V</div>
+          <div class="readiness-ring-wrap">
+            <svg class="ring-svg" viewBox="0 0 88 88">
+              <circle cx="44" cy="44" r="36" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="7"/>
+              <circle id="ring-path" cx="44" cy="44" r="36" fill="none"
+                stroke="white" stroke-width="7"
+                stroke-linecap="round"
+                stroke-dasharray="226.2"
+                stroke-dashoffset="135.7"
+                transform="rotate(-90 44 44)"
+                style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)"/>
+            </svg>
+            <div class="ring-inner">
+              <span class="ring-pct" id="ring-pct">40</span>
+              <span class="ring-label-sm">% Ready</span>
+            </div>
+          </div>
         </div>
 
-        <div class="content-grid">
-          <!-- Readiness card -->
-          <div class="card readiness-card">
-            <div class="card-label">Voting Readiness Score</div>
-            <div class="readiness-body">
-              <div class="ring-container">
-                <svg class="ring-svg" viewBox="0 0 140 140">
-                  <circle cx="70" cy="70" r="58" fill="none" stroke="var(--surface3)" stroke-width="10"/>
-                  <circle id="ring-path" cx="70" cy="70" r="58" fill="none"
-                    stroke="var(--green)" stroke-width="10"
-                    stroke-linecap="round"
-                    stroke-dasharray="364.4"
-                    stroke-dashoffset="218.6"
-                    transform="rotate(-90 70 70)"
-                    style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)"/>
-                </svg>
-                <div class="ring-label">
-                  <span class="ring-num" id="ring-pct">40</span>
-                  <span class="ring-unit">%</span>
-                  <span class="ring-sub">Ready</span>
-                </div>
-              </div>
-              <div class="readiness-right">
-                <div class="milestone-list">
-                  <div class="mstone done">
-                    <div class="ms-dot done"></div>
-                    <div><div class="ms-name">Registration</div><div class="ms-status">Completed</div></div>
-                  </div>
-                  <div class="mstone active">
-                    <div class="ms-dot active"></div>
-                    <div><div class="ms-name">Documents</div><div class="ms-status">In progress</div></div>
-                  </div>
-                  <div class="mstone">
-                    <div class="ms-dot"></div>
-                    <div><div class="ms-name">Election Day</div><div class="ms-status">Upcoming</div></div>
-                  </div>
-                </div>
-                <div class="score-bar-wrap">
-                  <div class="score-bar-label">
-                    <span id="score-tasks">2/5 tasks done</span>
-                    <span id="score-pct-sm">40%</span>
-                  </div>
-                  <div class="score-bar"><div class="score-fill" id="score-fill" style="width:40%"></div></div>
-                </div>
-              </div>
+        <!-- Milestone track -->
+        <div class="section-card">
+          <div class="section-label">Voting Roadmap</div>
+          <div class="milestone-track" id="milestone-track">
+            <div class="mtrack-item done">
+              <div class="mtrack-dot done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="mtrack-line done"></div>
+              <div class="mtrack-label">Register</div>
+            </div>
+            <div class="mtrack-item active">
+              <div class="mtrack-dot active"></div>
+              <div class="mtrack-line"></div>
+              <div class="mtrack-label">Documents</div>
+            </div>
+            <div class="mtrack-item">
+              <div class="mtrack-dot"></div>
+              <div class="mtrack-line"></div>
+              <div class="mtrack-label">Find Booth</div>
+            </div>
+            <div class="mtrack-item">
+              <div class="mtrack-dot"></div>
+              <div class="mtrack-line hide"></div>
+              <div class="mtrack-label">Vote Day</div>
             </div>
           </div>
-
-          <!-- Quick actions -->
-          <div class="card quick-actions-card">
-            <div class="card-label">Quick Actions</div>
-            <div class="qa-grid">
-              <button class="qa-btn" data-tab="checklist">
-                <span class="qa-icon">📋</span>
-                <span class="qa-name">My Checklist</span>
-                <span class="qa-sub" id="qa-checklist-sub">2/5 done</span>
-              </button>
-              <button class="qa-btn" data-tab="chat">
-                <span class="qa-icon">💬</span>
-                <span class="qa-name">Ask AI</span>
-                <span class="qa-sub">Instant answers</span>
-              </button>
-              <button class="qa-btn" data-tab="booth">
-                <span class="qa-icon">📍</span>
-                <span class="qa-name">Find Booth</span>
-                <span class="qa-sub">Near you</span>
-              </button>
-              <button class="qa-btn" data-tab="glossary">
-                <span class="qa-icon">📖</span>
-                <span class="qa-name">Glossary</span>
-                <span class="qa-sub">12 civic terms</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Deadline banner -->
-          <div class="card deadline-card">
-            <div class="dl-left">
-              <span class="dl-icon">⚠️</span>
-              <div>
-                <div class="dl-title">Registration closes in</div>
-                <div class="dl-count" id="dl-count">12 days</div>
-              </div>
-            </div>
-            <button class="btn-amber" data-tab="checklist">Act now</button>
-          </div>
-
-          <!-- Tip -->
-          <div class="card tip-card">
-            <div class="tip-eyebrow">💡 Did you know?</div>
-            <div class="tip-text" id="tip-text">Loading…</div>
-            <button class="tip-next" id="tip-btn">Next tip →</button>
-          </div>
-
-          <!-- Stats row -->
-          <div class="stats-row">
-            <div class="stat-pill"><span class="stat-num">900M+</span><span class="stat-label">Registered voters</span></div>
-            <div class="stat-pill"><span class="stat-num">~5 min</span><span class="stat-label">To vote at booth</span></div>
-            <div class="stat-pill"><span class="stat-num">1950</span><span class="stat-label">Voter helpline</span></div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar"><div class="progress-fill" id="score-fill" style="width:40%"></div></div>
+            <span class="progress-label" id="score-tasks">2 / 7 tasks complete</span>
           </div>
         </div>
+
+        <!-- Quick actions -->
+        <div class="qa-grid">
+          <button class="qa-card accent" data-tab="chat">
+            <div class="qa-card-icon">🤖</div>
+            <div class="qa-card-body">
+              <div class="qa-card-title">Ask AI</div>
+              <div class="qa-card-sub">Instant answers</div>
+            </div>
+            <div class="qa-card-arrow">→</div>
+          </button>
+          <button class="qa-card" data-tab="booth">
+            <div class="qa-card-icon">📍</div>
+            <div class="qa-card-body">
+              <div class="qa-card-title">Find Booth</div>
+              <div class="qa-card-sub">Near you</div>
+            </div>
+            <div class="qa-card-arrow">→</div>
+          </button>
+          <button class="qa-card" data-tab="checklist">
+            <div class="qa-card-icon">✅</div>
+            <div class="qa-card-body">
+              <div class="qa-card-title">Checklist</div>
+              <div class="qa-card-sub" id="qa-cl-sub">2/7 done</div>
+            </div>
+            <div class="qa-card-arrow">→</div>
+          </button>
+          <button class="qa-card" data-tab="glossary">
+            <div class="qa-card-icon">📖</div>
+            <div class="qa-card-body">
+              <div class="qa-card-title">Glossary</div>
+              <div class="qa-card-sub">16 civic terms</div>
+            </div>
+            <div class="qa-card-arrow">→</div>
+          </button>
+        </div>
+
+        <!-- Deadline banner -->
+        <div class="deadline-banner">
+          <div class="db-left">
+            <span class="db-icon">⏰</span>
+            <div>
+              <div class="db-label">Registration closes in</div>
+              <div class="db-count" id="dl-count">12 days</div>
+            </div>
+          </div>
+          <button class="btn-urgent" data-tab="checklist">Act now</button>
+        </div>
+
+        <!-- Did you know -->
+        <div class="tip-card">
+          <div class="tip-header">
+            <span class="tip-badge">💡 Did you know?</span>
+            <button class="tip-refresh" id="tip-btn">Next →</button>
+          </div>
+          <p class="tip-body" id="tip-text">Loading…</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-strip">
+          <div class="stat-item"><span class="stat-n">900M+</span><span class="stat-l">Registered voters</span></div>
+          <div class="stat-sep"></div>
+          <div class="stat-item"><span class="stat-n">~5 min</span><span class="stat-l">To vote</span></div>
+          <div class="stat-sep"></div>
+          <div class="stat-item"><span class="stat-n">1950</span><span class="stat-l">Helpline</span></div>
+        </div>
+
         <div class="scroll-pad"></div>
       </div>
     </div>
 
-    <!-- ── TAB: CHECKLIST ─────────────────────────────── -->
+    <!-- CHECKLIST TAB -->
     <div class="tab" id="tab-checklist">
       <div class="tab-scroll">
-        <div class="page-header">
-          <h2 class="page-title">My Checklist</h2>
-          <div class="header-badge" id="cl-badge">2/5</div>
+        <div class="tab-header">
+          <h2 class="tab-title">My Checklist</h2>
+          <div class="count-chip" id="cl-badge">2/7</div>
         </div>
-        <div class="content-grid narrow">
-          <div id="checklist-list" class="cl-list"></div>
-          <div class="export-wrap">
-            <button class="btn-outline full" id="download-btn">⬇ Download My Voting Plan</button>
-          </div>
-          <div class="info-callout">
-            <strong>Privacy note:</strong> No personal data leaves your device. All checklist progress is stored locally in your browser.
-          </div>
+        <div id="checklist-list" class="cl-list"></div>
+        <div class="export-row">
+          <button class="btn-outline-primary full" id="download-btn">⬇ Download My Voting Plan</button>
+        </div>
+        <div class="privacy-note">
+          🔒 No personal data leaves your device. Stored locally in your browser.
         </div>
         <div class="scroll-pad"></div>
       </div>
     </div>
 
-    <!-- ── TAB: CHAT ──────────────────────────────────── -->
+    <!-- CHAT TAB -->
     <div class="tab chat-tab" id="tab-chat">
-      <div class="chat-header-bar">
-        <div class="chat-header-left">
-          <div class="ai-status-dot"></div>
+      <div class="chat-topbar">
+        <div class="chat-ai-info">
+          <div class="ai-pulse"></div>
           <span>ElectraGuide AI</span>
         </div>
-        <div class="non-partisan-badge">Non-partisan ✓</div>
+        <div class="nonpartisan-pill">Non-partisan ✓</div>
       </div>
-
       <div class="chat-body" id="chat-body">
-        <div class="chat-welcome">
-          <div class="cw-bolt">⚡</div>
+        <div class="chat-welcome" id="chat-welcome">
+          <div class="cw-icon">⚡</div>
           <h3>Ask me anything about voting</h3>
           <p>I help with <em>how</em> to vote — never <em>who</em> to vote for.</p>
         </div>
         <div class="chat-msgs" id="chat-msgs"></div>
       </div>
-
       <div class="chat-bottom">
         <div class="chat-pills" id="chat-pills">
           <button class="cpill" data-q="What ID do I need to vote?">What ID do I need?</button>
@@ -246,10 +264,9 @@
           <button class="cpill" data-q="How to find my polling booth?">Find my booth</button>
           <button class="cpill" data-q="When does registration close?">Registration deadline</button>
           <button class="cpill" data-q="How do I apply for postal ballot?">Postal ballot</button>
-          <button class="cpill" data-q="How to link Aadhaar to voter ID?">Aadhaar linking</button>
         </div>
         <div class="chat-input-row">
-          <input type="text" id="chat-input" placeholder="Ask anything about voting…" autocomplete="off" autocorrect="off">
+          <input type="text" id="chat-input" placeholder="Ask anything about voting…" autocomplete="off">
           <button class="send-btn" id="send-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
@@ -257,65 +274,110 @@
       </div>
     </div>
 
-    <!-- ── TAB: BOOTH FINDER ──────────────────────────── -->
+    <!-- BOOTH TAB -->
     <div class="tab" id="tab-booth">
       <div class="tab-scroll">
-        <div class="page-header">
-          <h2 class="page-title">Find Your Booth</h2>
-          <div class="eci-badge">📡 ECI Data</div>
+        <div class="tab-header">
+          <h2 class="tab-title">Find Your Booth</h2>
+          <div class="eci-chip">📡 ECI</div>
         </div>
-        <div class="content-grid narrow">
-          <div class="card">
-            <div class="card-label">Search by Voter ID, pincode, or city</div>
-            <div class="booth-search-row">
-              <input type="text" id="booth-input" class="field" placeholder="e.g. ABC1234567, Delhi, 110078…">
-              <button class="btn-primary" id="booth-search-btn">Search</button>
-            </div>
+
+        <!-- Location card -->
+        <div class="location-card">
+          <div class="loc-icon">📍</div>
+          <div class="loc-body">
+            <div class="loc-title">Use my location</div>
+            <div class="loc-sub">Find the nearest polling booth automatically</div>
           </div>
-          <div id="booth-result-area">
-            <div class="empty-state">
-              <div class="es-icon">📍</div>
-              <p>Enter your Voter ID or city to find the nearest polling booth.</p>
-              <p class="es-sub">Data sourced from the Election Commission of India.</p>
-            </div>
+          <button class="btn-locate" id="locate-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><path d="M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+            Locate
+          </button>
+        </div>
+
+        <div class="divider-or"><span>or search manually</span></div>
+
+        <!-- Search -->
+        <div class="search-card">
+          <div class="search-row">
+            <input type="text" id="booth-input" class="search-field" placeholder="City, pincode or Voter ID…">
+            <button class="btn-search" id="booth-search-btn">Search</button>
           </div>
         </div>
+
+        <!-- Results -->
+        <div id="booth-result-area">
+          <div class="empty-state">
+            <div class="es-emoji">📍</div>
+            <p>Enter your city or use location to find your nearest polling booth.</p>
+            <p class="es-hint">Data from Election Commission of India</p>
+          </div>
+        </div>
+
         <div class="scroll-pad"></div>
       </div>
     </div>
 
-    <!-- ── TAB: GLOSSARY ──────────────────────────────── -->
+    <!-- GLOSSARY TAB -->
     <div class="tab" id="tab-glossary">
       <div class="tab-scroll">
-        <div class="page-header">
-          <h2 class="page-title">Civic Glossary</h2>
-          <span class="header-count" id="gloss-count">12 terms</span>
+        <div class="tab-header">
+          <h2 class="tab-title">Civic Glossary</h2>
+          <div class="count-chip" id="gloss-count">16</div>
         </div>
-        <div class="content-grid narrow">
-          <div class="search-bar-wrap">
-            <input type="text" id="gloss-input" class="field" placeholder="Search terms…">
-          </div>
-          <div id="gloss-list" class="gloss-grid"></div>
+        <div class="search-card" style="margin-bottom:1rem">
+          <input type="text" id="gloss-input" class="search-field" placeholder="Search terms…" style="width:100%;border-radius:14px">
         </div>
+        <div id="gloss-list" class="gloss-grid"></div>
         <div class="scroll-pad"></div>
       </div>
     </div>
 
   </main>
 
-  <!-- Mobile bottom nav -->
-  <nav class="mobile-nav">
-    <button class="mn-item active" data-tab="home"><span class="mn-icon">🏠</span><span>Home</span></button>
-    <button class="mn-item" data-tab="checklist"><span class="mn-icon">📋</span><span>Checklist</span></button>
-    <button class="mn-item" data-tab="chat"><span class="mn-icon">💬</span><span>Ask AI</span></button>
-    <button class="mn-item" data-tab="booth"><span class="mn-icon">📍</span><span>Booth</span></button>
-    <button class="mn-item" data-tab="glossary"><span class="mn-icon">📖</span><span>Glossary</span></button>
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav glass-nav">
+    <button class="bn-item active" data-tab="home" id="bn-home">
+      <span class="bn-icon">🏠</span><span class="bn-label">Home</span>
+    </button>
+    <button class="bn-item" data-tab="checklist" id="bn-checklist">
+      <span class="bn-icon">✅</span><span class="bn-label">Checklist</span>
+    </button>
+    <button class="bn-item bn-center" data-tab="chat" id="bn-chat">
+      <div class="bn-center-btn">🤖</div>
+      <span class="bn-label">Ask AI</span>
+    </button>
+    <button class="bn-item" data-tab="booth" id="bn-booth">
+      <span class="bn-icon">📍</span><span class="bn-label">Booth</span>
+    </button>
+    <button class="bn-item" data-tab="glossary" id="bn-glossary">
+      <span class="bn-icon">📖</span><span class="bn-label">Glossary</span>
+    </button>
   </nav>
+
 </div><!-- /#app -->
+
+<!-- Map Modal -->
+<div id="map-modal" class="map-modal" style="display:none">
+  <div class="map-modal-header">
+    <div class="map-modal-title" id="map-modal-title">Polling Booth</div>
+    <button class="map-close-btn" id="map-close">✕</button>
+  </div>
+  <div class="map-frame-wrap">
+    <iframe id="map-iframe" class="map-iframe" src="" frameborder="0" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+  </div>
+  <div class="map-modal-footer">
+    <a id="map-directions-link" href="#" target="_blank" rel="noopener" class="btn-directions">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+      Open in Google Maps
+    </a>
+  </div>
+</div>
+<div id="map-overlay" class="map-overlay" style="display:none"></div>
 
 <!-- Toast -->
 <div id="toast" class="toast"></div>
 
-<script src="/static/js/app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
