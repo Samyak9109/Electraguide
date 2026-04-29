@@ -1,11 +1,12 @@
 """
-ElectraGuide v2.0 — Flask backend
+ElectraGuide v3.0 — Flask backend
 Powered by Google Gemini AI · Deployable on Google Cloud Run
 """
 
 import os
 import json
 import random
+import time
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -19,34 +20,42 @@ except ImportError:
 
 # ── Gemini setup ───────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-gemini_model = None
+gemini_client = None
+
+# Model preference order — try lighter/more-available models first
+MODEL_CANDIDATES = [
+    "gemini-2.0-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+]
+
+SYSTEM_PROMPT = (
+    "You are ElectraGuide, a friendly and intelligent AI assistant. "
+    "You are primarily focused on Indian elections and the voting process, "
+    "but you are also a general-purpose assistant who can answer ANY question the user asks. "
+    "For election-related queries: provide clear, accurate, step-by-step guidance on voter registration, "
+    "finding polling booths, required ID documents, mail-in/postal ballots, "
+    "EVM usage, NOTA, election schedules, and related civic topics. "
+    "Always cite official sources like the Election Commission of India (ECI), "
+    "nvsp.in, or voterportal.eci.gov.in when relevant. "
+    "If a question is about party politics, candidates, or who to vote for, "
+    "politely decline and redirect to civic process information. "
+    "For NON-election questions: answer them helpfully and accurately as a general AI assistant. "
+    "Keep answers concise (3-5 sentences max unless the user asks for detail), "
+    "warm, and empowering. "
+    "Respond in the same language the user writes in (English or Hindi)."
+)
 
 if GEMINI_API_KEY:
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=(
-                "You are ElectraGuide, a friendly, non-partisan AI election assistant "
-                "focused exclusively on Indian elections and the voting process. "
-                "Your role is to help citizens understand HOW to vote — never WHO to vote for. "
-                "You provide clear, accurate, step-by-step guidance on voter registration, "
-                "finding polling booths, required ID documents, mail-in/postal ballots, "
-                "EVM usage, NOTA, election schedules, and related civic topics. "
-                "Always cite official sources like the Election Commission of India (ECI), "
-                "nvsp.in, or voterportal.eci.gov.in when relevant. "
-                "If a question is about party politics, candidates, or who to vote for, "
-                "politely decline and redirect to civic process information. "
-                "Keep answers concise (3-5 sentences max unless the user asks for detail), "
-                "warm, and empowering. Always end with a relevant official resource when applicable. "
-                "Respond in the same language the user writes in (English or Hindi)."
-            ),
-        )
-        print("✅ Gemini AI connected successfully")
+        from google import genai as google_genai
+        from google.genai import types as genai_types
+        gemini_client = google_genai.Client(api_key=GEMINI_API_KEY)
+        print("✅ Gemini AI client initialized (google.genai)")
+    except ImportError:
+        print("⚠️  google-genai package not installed — run: pip install google-genai")
     except Exception as e:
-        print(f"⚠️  Gemini setup failed: {e} — falling back to keyword mode")
-        gemini_model = None
+        print(f"⚠️  Gemini setup failed: {e}")
 else:
     print("ℹ️  No GEMINI_API_KEY found — running in keyword-fallback mode")
 
@@ -139,6 +148,57 @@ def keyword_answer(question: str) -> str | None:
         )
     return None
 
+
+# ── Gemini call with model fallback + retry ────────────────────────────────────
+def call_gemini(question: str, history: list) -> str | None:
+    """Try calling Gemini with model fallback and retry logic."""
+    if not gemini_client:
+        return None
+
+    from google.genai import types as _t
+
+    # Build conversation contents from history
+    contents = []
+    for turn in history[-6:]:
+        role = turn.get("role")
+        text = turn.get("text", "")
+        if role in ("user", "model") and text:
+            contents.append(
+                _t.Content(role=role, parts=[_t.Part(text=text)])
+            )
+    contents.append(_t.Content(role="user", parts=[_t.Part(text=question)]))
+
+    config = _t.GenerateContentConfig(system_instruction=SYSTEM_PROMPT)
+
+    # Try each model candidate
+    for model_name in MODEL_CANDIDATES:
+        for attempt in range(2):  # max 2 attempts per model
+            try:
+                resp = gemini_client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=config,
+                )
+                answer = resp.text.strip()
+                if answer:
+                    return answer
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    if attempt == 0:
+                        time.sleep(2)  # brief pause before retry
+                        continue
+                    else:
+                        break  # try next model
+                elif "404" in err_str or "not found" in err_str.lower():
+                    break  # model doesn't exist, try next
+                else:
+                    print(f"Gemini error ({model_name}): {e}")
+                    break
+
+    return None
+
+
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -150,8 +210,8 @@ def health():
     return jsonify({
         "status": "ok",
         "service": "electraguide",
-        "version": "2.0",
-        "ai": "gemini-1.5-flash" if gemini_model else "keyword-fallback",
+        "version": "3.0",
+        "ai": "gemini" if gemini_client else "keyword-fallback",
     })
 
 # ── API: Checklist ─────────────────────────────────────────────────────────────
@@ -191,30 +251,26 @@ def chat():
     history  = data.get("history", [])   # [{role, text}, …] last few turns
 
     if not question:
-        return jsonify({"answer": "Please ask a question about voting or elections!"})
+        return jsonify({"answer": "Please ask a question — I can help with voting, elections, or anything else!"})
 
-    # ── Try Gemini first ───────────────────────────────────────────────────────
-    if gemini_model:
-        try:
-            # Build conversation history for context
-            chat_session = gemini_model.start_chat(history=[
-                {"role": turn["role"], "parts": [turn["text"]]}
-                for turn in history[-6:]   # last 3 exchanges (user+model each)
-                if turn.get("role") in ("user", "model") and turn.get("text")
-            ])
-            response = chat_session.send_message(question)
-            answer = response.text.strip()
-            return jsonify({"answer": answer, "source": "gemini"})
-        except Exception as e:
-            print(f"Gemini error: {e} — falling back to keyword mode")
+    # ── Try Gemini first (with model fallback + retry) ─────────────────────────
+    answer = call_gemini(question, history)
+    if answer:
+        return jsonify({"answer": answer, "source": "gemini"})
 
     # ── Keyword fallback ───────────────────────────────────────────────────────
     answer = keyword_answer(question)
     if not answer:
         answer = (
-            "I can only assist with voting and election-related questions. "
-            "Try asking about voter ID requirements, finding your booth, NOTA, "
-            "or registration deadlines!"
+            "I'm having trouble connecting to the AI service right now. "
+            "For election-related questions, I can still help with:\n\n"
+            "• Voter ID requirements\n"
+            "• Finding your polling booth\n"
+            "• NOTA explanation\n"
+            "• Registration deadlines\n"
+            "• Postal ballots\n"
+            "• Aadhaar linking\n\n"
+            "Try asking about one of these topics, or try again in a moment!"
         )
     return jsonify({"answer": answer, "source": "keyword"})
 
@@ -276,5 +332,5 @@ def save_session():
 if __name__ == "__main__":
     port  = int(os.environ.get("PORT", 8080))
     debug = os.environ.get("FLASK_ENV") == "development"
-    print(f"\n🚀 ElectraGuide running at http://localhost:{port}\n")
+    print(f"\n🚀 ElectraGuide v3.0 running at http://localhost:{port}\n")
     app.run(host="0.0.0.0", port=port, debug=debug)

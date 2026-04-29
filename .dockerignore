@@ -1,0 +1,16 @@
+.git
+.env
+.env.example
+__pycache__
+*.pyc
+*.zip
+node_modules
+.planning
+.agents
+test-gsd
+graphify-out
+deploy.sh
+.dockerignore
+.gitignore
+package-lock.json
+    

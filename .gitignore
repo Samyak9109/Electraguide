@@ -1,1 +1,34 @@
+# ─── Secrets ───
 .env
+
+# ─── Python ───
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# ─── Node ───
+node_modules/
+package-lock.json
+
+# ─── Archives ───
+*.zip
+*.tar.gz
+
+# ─── IDE / OS ───
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Dev / Planning ───
+.planning/
+.agents/
+test-gsd/
+graphify-out/

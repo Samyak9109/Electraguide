@@ -8,7 +8,7 @@
 set -e  # Exit on any error
 
 # ── CONFIGURATION ─────────────────────────────────────────────
-PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-your-gcp-project-id}"   # Replace or set env var
+PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-electraguide-app}"
 SERVICE_NAME="electraguide"
 REGION="asia-south1"          # Mumbai — closest to India
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
@@ -17,6 +17,11 @@ CPU="1"
 CONCURRENCY="80"
 MIN_INSTANCES="0"             # Scale to 0 when idle (free tier)
 MAX_INSTANCES="3"
+
+# Load API Key from .env if present
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
 
 echo ""
 echo "╔══════════════════════════════════════╗"
@@ -61,6 +66,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --min-instances "$MIN_INSTANCES" \
   --max-instances "$MAX_INSTANCES" \
   --allow-unauthenticated \
+  --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY}" \
   --port 8080 \
   --quiet
 

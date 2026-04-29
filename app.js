@@ -54,13 +54,8 @@ function switchTab(tabId) {
   const tab = document.getElementById('tab-' + tabId);
   if (tab) tab.classList.add('active');
 
-  // Sidebar items
-  document.querySelectorAll('.sb-item').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab === tabId);
-  });
-
-  // Mobile nav
-  document.querySelectorAll('.mn-item').forEach(b => {
+  // Bottom nav items
+  document.querySelectorAll('.bn-item').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tabId);
   });
 
@@ -227,8 +222,14 @@ async function initApp() {
 }
 
 function bindNavigation() {
-  // Sidebar
-  document.querySelectorAll('[data-tab]').forEach(el => {
+  // Bottom nav + quick action cards
+  document.querySelectorAll('.bn-item[data-tab]').forEach(el => {
+    el.addEventListener('click', () => switchTab(el.dataset.tab));
+  });
+  document.querySelectorAll('.qa-card[data-tab]').forEach(el => {
+    el.addEventListener('click', () => switchTab(el.dataset.tab));
+  });
+  document.querySelectorAll('.btn-urgent[data-tab]').forEach(el => {
     el.addEventListener('click', () => switchTab(el.dataset.tab));
   });
 }
@@ -239,11 +240,12 @@ function updateUserUI() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
 
-  document.getElementById('home-greeting').textContent = greet;
-  document.getElementById('home-username').textContent = name;
-  document.getElementById('home-avatar').textContent = initial;
-  document.getElementById('sb-uname').textContent = name;
-  document.getElementById('sb-avatar').textContent = initial;
+  const greetEl = document.getElementById('home-greeting');
+  if (greetEl) greetEl.textContent = greet;
+  const nameEl = document.getElementById('home-username');
+  if (nameEl) nameEl.textContent = name;
+  const avatarEl = document.getElementById('tb-avatar');
+  if (avatarEl) avatarEl.textContent = initial;
 }
 
 /* ── HOME ───────────────────────────────────────────────── */
@@ -253,8 +255,8 @@ function refreshHome() {
   const pct = Math.round((done / total) * 100);
   State.score = pct;
 
-  // Ring
-  const circumference = 2 * Math.PI * 58; // r=58
+  // Ring (r=36 matches the SVG)
+  const circumference = 2 * Math.PI * 36;
   const offset = circumference - (pct / 100) * circumference;
   const ring = document.getElementById('ring-path');
   if (ring) ring.setAttribute('stroke-dashoffset', offset.toFixed(1));
@@ -268,14 +270,9 @@ function refreshHome() {
 
   const tasksEl = document.getElementById('score-tasks');
   if (tasksEl) tasksEl.textContent = `${done}/${total} tasks done`;
-  const pctSmEl = document.getElementById('score-pct-sm');
-  if (pctSmEl) pctSmEl.textContent = pct + '%';
 
-  const qaSubEl = document.getElementById('qa-checklist-sub');
+  const qaSubEl = document.getElementById('qa-cl-sub');
   if (qaSubEl) qaSubEl.textContent = `${done}/${total} done`;
-
-  const sbStatusEl = document.getElementById('sb-ustatus');
-  if (sbStatusEl) sbStatusEl.textContent = pct + '% ready to vote';
 
   updateUserUI();
 }
@@ -318,8 +315,43 @@ function renderChecklist() {
   });
 }
 
+function addChecklistItem(title, meta = 'Custom task') {
+  if (!title || !title.trim()) return;
+  const newId = State.checklist.length > 0
+    ? Math.max(...State.checklist.map(i => i.id)) + 1
+    : 0;
+  const newItem = {
+    id: newId,
+    title: title.trim(),
+    meta: meta,
+    tag: 'pending',
+    done: false,
+  };
+  State.checklist.push(newItem);
+  localStorage.setItem('eg_checklist', JSON.stringify(State.checklist));
+  renderChecklist();
+  refreshHome();
+  showToast(`✅ "${newItem.title}" added to checklist!`);
+}
+
 function bindChecklist() {
   renderChecklist();
+
+  // Bind the Add Item button
+  const addBtn = document.getElementById('add-cl-btn');
+  const addInput = document.getElementById('add-cl-input');
+  if (addBtn && addInput) {
+    addBtn.addEventListener('click', () => {
+      addChecklistItem(addInput.value);
+      addInput.value = '';
+    });
+    addInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        addChecklistItem(addInput.value);
+        addInput.value = '';
+      }
+    });
+  }
 }
 
 async function toggleItem(id) {
@@ -548,8 +580,8 @@ async function findBooth() {
         <div class="booth-verified">✓ ECI Verified Data</div>
         <div class="booth-actions">
           <button class="btn-ghost" onclick="openMap('${b.name.replace(/'/g, "\\'")}', '${b.name.replace(/'/g, "\\'")}, ${b.address.replace(/'/g, "\\'")}')">🗺️ Get Directions</button>
-          <button class="btn-ghost" onclick="showToast('⏰ Reminder set for Election Day!')">⏰ Set Reminder</button>
-          <button class="btn-ghost" onclick="showToast('📋 Booth saved to checklist!')">📋 Save to Checklist</button>
+          <button class="btn-ghost" onclick="addChecklistItem('Election Day reminder: Go vote!', 'Reminder set from Booth Finder')">⏰ Set Reminder</button>
+          <button class="btn-ghost" onclick="addChecklistItem('Visit polling booth: ${b.name.replace(/'/g, "\\'")}', '${b.address.replace(/'/g, "\\'")}')">📋 Save to Checklist</button>
         </div>
       </div>`;
   } else {
