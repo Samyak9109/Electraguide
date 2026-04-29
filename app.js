@@ -5,9 +5,17 @@
 
 'use strict';
 
+/* ── SECURITY: XSS Sanitizer ────────────────────────────── */
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
 /* ── CONFIG ─────────────────────────────────────────────── */
 const BASE_URL = '';  // same-origin; change for separate backend
-const SESSION_ID = 'eg_' + Math.random().toString(36).slice(2, 10);
+const SESSION_ID = 'eg_' + crypto.getRandomValues(new Uint8Array(8)).reduce((s,b) => s + b.toString(36).padStart(2,'0'), '');
 
 /* ── STATE ──────────────────────────────────────────────── */
 const State = {
@@ -303,8 +311,8 @@ function renderChecklist() {
     <div class="cl-item ${item.done ? 'done' : ''}" data-id="${item.id}">
       <div class="cl-check ${item.done ? 'done' : ''}">${item.done ? '✓' : ''}</div>
       <div class="cl-body">
-        <div class="cl-title ${item.done ? 'done' : ''}">${item.title}</div>
-        <div class="cl-meta">${item.meta}</div>
+        <div class="cl-title ${item.done ? 'done' : ''}">${escapeHtml(item.title)}</div>
+        <div class="cl-meta">${escapeHtml(item.meta)}</div>
       </div>
       <span class="cl-tag tag-${item.done ? 'done' : item.tag}">${item.done ? 'Done' : item.tag === 'urgent' ? 'Urgent' : 'Pending'}</span>
     </div>
@@ -317,13 +325,16 @@ function renderChecklist() {
 
 function addChecklistItem(title, meta = 'Custom task') {
   if (!title || !title.trim()) return;
+  // Security: limit input length
+  const safeTitle = title.trim().slice(0, 80);
+  const safeMeta = (meta || 'Custom task').slice(0, 120);
   const newId = State.checklist.length > 0
     ? Math.max(...State.checklist.map(i => i.id)) + 1
     : 0;
   const newItem = {
     id: newId,
-    title: title.trim(),
-    meta: meta,
+    title: safeTitle,
+    meta: safeMeta,
     tag: 'pending',
     done: false,
   };
@@ -331,7 +342,7 @@ function addChecklistItem(title, meta = 'Custom task') {
   localStorage.setItem('eg_checklist', JSON.stringify(State.checklist));
   renderChecklist();
   refreshHome();
-  showToast(`✅ "${newItem.title}" added to checklist!`);
+  showToast(`✅ "${escapeHtml(newItem.title)}" added to checklist!`);
 }
 
 function bindChecklist() {
@@ -497,6 +508,9 @@ function appendBubble(text, role, animate = false) {
   const div = document.createElement('div');
   div.className = `bubble-row ${role}`;
 
+  // Security: escape user input to prevent XSS
+  const safeText = role === 'user' ? escapeHtml(text) : text;
+
   if (role === 'ai') {
     const txtEl = document.createElement('div');
     txtEl.className = 'bubble-txt';
@@ -504,9 +518,9 @@ function appendBubble(text, role, animate = false) {
     div.appendChild(txtEl);
     msgs.appendChild(div);
 
-    if (animate && text.length > 0) {
+    if (animate && safeText.length > 0) {
       // Word-by-word reveal for a streaming feel
-      const words = text.split(' ');
+      const words = safeText.split(' ');
       let i = 0;
       const tick = () => {
         if (i < words.length) {
@@ -517,10 +531,10 @@ function appendBubble(text, role, animate = false) {
       };
       tick();
     } else {
-      txtEl.innerHTML = text.replace(/\n/g, '<br>');
+      txtEl.innerHTML = safeText.replace(/\n/g, '<br>');
     }
   } else {
-    div.innerHTML = `<div class="bubble-txt">${text.replace(/\n/g, '<br>')}</div>`;
+    div.innerHTML = `<div class="bubble-txt">${safeText.replace(/\n/g, '<br>')}</div>`;
     msgs.appendChild(div);
   }
 
@@ -571,19 +585,28 @@ async function findBooth() {
 
   if (data?.booth) {
     const b = data.booth;
+    // Security: escape booth data before rendering
+    const safeName = escapeHtml(b.name);
+    const safeAddr = escapeHtml(b.address);
+    const safeWard = escapeHtml(b.ward);
+    const safeDist = escapeHtml(b.distance);
     area.innerHTML = `
       <div class="booth-card">
-        <h4>📍 ${b.name}</h4>
-        <p>${b.address}</p>
-        <p class="booth-meta">${b.ward}</p>
-        <div class="booth-dist">📏 ${b.distance}</div>
+        <h4>📍 ${safeName}</h4>
+        <p>${safeAddr}</p>
+        <p class="booth-meta">${safeWard}</p>
+        <div class="booth-dist">📏 ${safeDist}</div>
         <div class="booth-verified">✓ ECI Verified Data</div>
         <div class="booth-actions">
-          <button class="btn-ghost" onclick="openMap('${b.name.replace(/'/g, "\\'")}', '${b.name.replace(/'/g, "\\'")}, ${b.address.replace(/'/g, "\\'")}')">🗺️ Get Directions</button>
-          <button class="btn-ghost" onclick="addChecklistItem('Election Day reminder: Go vote!', 'Reminder set from Booth Finder')">⏰ Set Reminder</button>
-          <button class="btn-ghost" onclick="addChecklistItem('Visit polling booth: ${b.name.replace(/'/g, "\\'")}', '${b.address.replace(/'/g, "\\'")}')">📋 Save to Checklist</button>
+          <button class="btn-ghost" id="booth-directions-btn">🗺️ Get Directions</button>
+          <button class="btn-ghost" id="booth-reminder-btn">⏰ Set Reminder</button>
+          <button class="btn-ghost" id="booth-save-btn">📋 Save to Checklist</button>
         </div>
       </div>`;
+    // Bind buttons programmatically instead of inline onclick (CSP-safe)
+    document.getElementById('booth-directions-btn')?.addEventListener('click', () => openMap(b.name, `${b.name}, ${b.address}`));
+    document.getElementById('booth-reminder-btn')?.addEventListener('click', () => addChecklistItem('Election Day reminder: Go vote!', 'Reminder set from Booth Finder'));
+    document.getElementById('booth-save-btn')?.addEventListener('click', () => addChecklistItem(`Visit polling booth: ${b.name}`, b.address));
   } else {
     area.innerHTML = '<div class="empty-state"><div class="es-icon">⚠️</div><p>Could not fetch booth data. Try again or visit voters.eci.gov.in</p></div>';
   }

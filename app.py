@@ -1,15 +1,21 @@
 """
-ElectraGuide v3.0 — Flask backend
-Powered by Google Gemini AI · Deployable on Google Cloud Run
+ElectraGuide v3.1 — Flask backend
+Powered by Google Gemini AI · Deployed on Google Cloud Run
+Enhanced with security hardening & Google Cloud integration
 """
 
 import os
 import json
+import re
+import html
+import uuid
 import random
 import time
+import logging
+from functools import wraps
+from collections import defaultdict
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+from flask import Flask, request, jsonify, send_from_directory, abort
 
 # Load .env file if present (local dev)
 try:
@@ -18,8 +24,41 @@ try:
 except ImportError:
     pass  # python-dotenv not installed; rely on real env vars
 
+# ── Google Cloud Logging integration ───────────────────────────────────────────
+# Uses Cloud Logging when running on GCP; standard logging locally
+try:
+    import google.cloud.logging as cloud_logging
+    cloud_client = cloud_logging.Client()
+    cloud_client.setup_logging()
+    logging.info("☁️  Google Cloud Logging attached")
+except (ImportError, Exception):
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+logger = logging.getLogger("electraguide")
+
+# ── Google Cloud Secret Manager (optional) ─────────────────────────────────────
+def get_secret(secret_id: str) -> str | None:
+    """Fetch a secret from Google Cloud Secret Manager.
+    Falls back to environment variable if Secret Manager is unavailable."""
+    try:
+        from google.cloud import secretmanager
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT")
+        if not project:
+            return None
+        client = secretmanager.SecretManagerServiceClient()
+        name = f"projects/{project}/secrets/{secret_id}/versions/latest"
+        response = client.access_secret_version(request={"name": name})
+        return response.payload.data.decode("UTF-8")
+    except Exception:
+        return None
+
 # ── Gemini setup ───────────────────────────────────────────────────────────────
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# Priority: Secret Manager > Environment Variable
+GEMINI_API_KEY = get_secret("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
 gemini_client = None
 
 # Model preference order — try lighter/more-available models first
@@ -51,18 +90,107 @@ if GEMINI_API_KEY:
         from google import genai as google_genai
         from google.genai import types as genai_types
         gemini_client = google_genai.Client(api_key=GEMINI_API_KEY)
-        print("✅ Gemini AI client initialized (google.genai)")
+        logger.info("✅ Gemini AI client initialized (google.genai)")
     except ImportError:
-        print("⚠️  google-genai package not installed — run: pip install google-genai")
+        logger.warning("⚠️  google-genai package not installed — run: pip install google-genai")
     except Exception as e:
-        print(f"⚠️  Gemini setup failed: {e}")
+        logger.error(f"⚠️  Gemini setup failed: {e}")
 else:
-    print("ℹ️  No GEMINI_API_KEY found — running in keyword-fallback mode")
+    logger.info("ℹ️  No GEMINI_API_KEY found — running in keyword-fallback mode")
 
 # ── Flask app ──────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 app = Flask(__name__, static_folder=str(BASE_DIR), static_url_path="")
-CORS(app)
+
+# ── Security: Restrictive CORS ─────────────────────────────────────────────────
+# Only allow same-origin in production; permissive in development
+FLASK_ENV = os.environ.get("FLASK_ENV", "production")
+if FLASK_ENV == "development":
+    from flask_cors import CORS
+    CORS(app, origins=["http://localhost:8080", "http://127.0.0.1:8080"])
+else:
+    from flask_cors import CORS
+    ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "").split(",")
+    CORS(app, origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS != [""] else ["*"],
+         methods=["GET", "POST"],
+         allow_headers=["Content-Type"])
+
+# ── Security: HTTP Headers ─────────────────────────────────────────────────────
+@app.after_request
+def set_security_headers(response):
+    """Add security headers to every response."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "frame-src https://maps.google.com https://www.google.com; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self';"
+    )
+    return response
+
+# ── Security: Rate Limiter ─────────────────────────────────────────────────────
+class RateLimiter:
+    """Simple in-memory rate limiter per IP address."""
+    def __init__(self):
+        self.requests = defaultdict(list)
+
+    def is_allowed(self, ip: str, max_requests: int = 30, window_seconds: int = 60) -> bool:
+        now = time.time()
+        # Clean old entries
+        self.requests[ip] = [t for t in self.requests[ip] if now - t < window_seconds]
+        if len(self.requests[ip]) >= max_requests:
+            return False
+        self.requests[ip].append(now)
+        return True
+
+rate_limiter = RateLimiter()
+
+def rate_limit(max_requests=30, window=60):
+    """Decorator to rate-limit an endpoint."""
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+            if ip:
+                ip = ip.split(",")[0].strip()
+            if not rate_limiter.is_allowed(ip, max_requests, window):
+                logger.warning(f"Rate limit exceeded for IP: {ip}")
+                return jsonify({"error": "Too many requests. Please wait a moment."}), 429
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
+
+# ── Security: Input Sanitizer ──────────────────────────────────────────────────
+def sanitize_input(text: str, max_length: int = 500) -> str:
+    """Sanitize and limit user input to prevent injection and abuse."""
+    if not isinstance(text, str):
+        return ""
+    # Truncate to max length
+    text = text[:max_length]
+    # Strip leading/trailing whitespace
+    text = text.strip()
+    # Escape HTML entities to prevent XSS
+    text = html.escape(text)
+    return text
+
+def validate_session_id(session_id: str) -> str:
+    """Validate session ID format to prevent injection."""
+    if not session_id or not isinstance(session_id, str):
+        return "default"
+    # Only allow alphanumeric, underscores, and hyphens
+    cleaned = re.sub(r'[^a-zA-Z0-9_\-]', '', session_id[:64])
+    return cleaned or "default"
 
 # In-memory session store (use Redis/Firestore for production)
 sessions = {}
@@ -181,6 +309,7 @@ def call_gemini(question: str, history: list) -> str | None:
                 )
                 answer = resp.text.strip()
                 if answer:
+                    logger.info(f"Gemini response OK via {model_name}")
                     return answer
             except Exception as e:
                 err_str = str(e)
@@ -193,7 +322,7 @@ def call_gemini(question: str, history: list) -> str | None:
                 elif "404" in err_str or "not found" in err_str.lower():
                     break  # model doesn't exist, try next
                 else:
-                    print(f"Gemini error ({model_name}): {e}")
+                    logger.error(f"Gemini error ({model_name}): {e}")
                     break
 
     return None
@@ -207,26 +336,36 @@ def index():
 
 @app.route("/health")
 def health():
+    """Health check endpoint for Cloud Run liveness probes."""
     return jsonify({
         "status": "ok",
         "service": "electraguide",
-        "version": "3.0",
+        "version": "3.1",
         "ai": "gemini" if gemini_client else "keyword-fallback",
     })
 
 # ── API: Checklist ─────────────────────────────────────────────────────────────
 
 @app.route("/api/checklist", methods=["GET"])
+@rate_limit(max_requests=60, window=60)
 def get_checklist():
-    session_id = request.args.get("session", "default")
+    session_id = validate_session_id(request.args.get("session", "default"))
     checklist = sessions.get(session_id, {}).get("checklist", DEFAULT_CHECKLIST)
     return jsonify({"checklist": checklist})
 
 @app.route("/api/checklist/toggle", methods=["POST"])
+@rate_limit(max_requests=30, window=60)
 def toggle_checklist():
     data = request.get_json()
-    session_id = data.get("session", "default")
+    if not data:
+        return jsonify({"error": "Invalid request body"}), 400
+
+    session_id = validate_session_id(data.get("session", "default"))
     item_id = data.get("id")
+
+    # Validate item_id is an integer
+    if not isinstance(item_id, int) or item_id < 0 or item_id > 100:
+        return jsonify({"error": "Invalid item ID"}), 400
 
     if session_id not in sessions:
         sessions[session_id] = {"checklist": [dict(i) for i in DEFAULT_CHECKLIST]}
@@ -245,16 +384,29 @@ def toggle_checklist():
 # ── API: Chat (Gemini-powered) ─────────────────────────────────────────────────
 
 @app.route("/api/chat", methods=["POST"])
+@rate_limit(max_requests=20, window=60)
 def chat():
     data = request.get_json() or {}
-    question = data.get("question", "").strip()
+    question = sanitize_input(data.get("question", ""), max_length=1000)
     history  = data.get("history", [])   # [{role, text}, …] last few turns
 
     if not question:
         return jsonify({"answer": "Please ask a question — I can help with voting, elections, or anything else!"})
 
+    # Validate history format
+    if not isinstance(history, list):
+        history = []
+    # Sanitize history entries
+    clean_history = []
+    for turn in history[-6:]:
+        if isinstance(turn, dict) and "role" in turn and "text" in turn:
+            role = turn["role"] if turn["role"] in ("user", "model") else None
+            text = sanitize_input(str(turn.get("text", "")), max_length=1000)
+            if role and text:
+                clean_history.append({"role": role, "text": text})
+
     # ── Try Gemini first (with model fallback + retry) ─────────────────────────
-    answer = call_gemini(question, history)
+    answer = call_gemini(question, clean_history)
     if answer:
         return jsonify({"answer": answer, "source": "gemini"})
 
@@ -277,9 +429,13 @@ def chat():
 # ── API: Booth Finder ──────────────────────────────────────────────────────────
 
 @app.route("/api/booth", methods=["POST"])
+@rate_limit(max_requests=30, window=60)
 def find_booth():
     data = request.get_json() or {}
-    query = data.get("query", "").lower()
+    query = sanitize_input(data.get("query", ""), max_length=200).lower()
+
+    if not query:
+        return jsonify({"error": "Please provide a search query"}), 400
 
     result = None
     for city, info in BOOTHS.items():
@@ -300,8 +456,9 @@ def find_booth():
 # ── API: Glossary ──────────────────────────────────────────────────────────────
 
 @app.route("/api/glossary", methods=["GET"])
+@rate_limit(max_requests=60, window=60)
 def glossary():
-    q = request.args.get("q", "").lower()
+    q = sanitize_input(request.args.get("q", ""), max_length=100).lower()
     filtered = (
         [g for g in GLOSSARY if q in g["term"].lower() or q in g["def"].lower()]
         if q else GLOSSARY
@@ -311,26 +468,54 @@ def glossary():
 # ── API: Tips ──────────────────────────────────────────────────────────────────
 
 @app.route("/api/tip", methods=["GET"])
+@rate_limit(max_requests=60, window=60)
 def tip():
     return jsonify({"tip": random.choice(TIPS)})
 
 # ── API: User session ──────────────────────────────────────────────────────────
 
 @app.route("/api/session", methods=["POST"])
+@rate_limit(max_requests=10, window=60)
 def save_session():
     data = request.get_json() or {}
-    session_id = data.get("session")
+    session_id = validate_session_id(data.get("session"))
     user = data.get("user", {})
+
+    # Sanitize user data
+    if isinstance(user, dict):
+        clean_user = {
+            "name": sanitize_input(str(user.get("name", "Voter")), max_length=50),
+            "state": sanitize_input(str(user.get("state", "")), max_length=50),
+            "firstTime": bool(user.get("firstTime", False)),
+        }
+    else:
+        clean_user = {"name": "Voter", "state": "", "firstTime": False}
+
     if session_id:
         if session_id not in sessions:
             sessions[session_id] = {}
-        sessions[session_id]["user"] = user
+        sessions[session_id]["user"] = clean_user
     return jsonify({"ok": True})
+
+# ── Error Handlers ─────────────────────────────────────────────────────────────
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Resource not found"}), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    logger.error(f"Internal server error: {e}")
+    return jsonify({"error": "Internal server error"}), 500
+
+@app.errorhandler(429)
+def too_many_requests(e):
+    return jsonify({"error": "Too many requests. Please slow down."}), 429
 
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     port  = int(os.environ.get("PORT", 8080))
     debug = os.environ.get("FLASK_ENV") == "development"
-    print(f"\n🚀 ElectraGuide v3.0 running at http://localhost:{port}\n")
+    logger.info(f"\n🚀 ElectraGuide v3.1 running at http://localhost:{port}\n")
     app.run(host="0.0.0.0", port=port, debug=debug)
