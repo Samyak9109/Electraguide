@@ -8,7 +8,7 @@
 set -e  # Exit on any error
 
 # ── CONFIGURATION ─────────────────────────────────────────────
-PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-electraguide-app}"
+PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-electraguide-494807}"
 SERVICE_NAME="electraguide"
 REGION="asia-south1"          # Mumbai — closest to India
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
