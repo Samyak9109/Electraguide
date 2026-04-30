@@ -1,7 +1,7 @@
 """
-ElectraGuide v3.1 — Flask backend
+ElectraGuide v4.0 — Flask backend
 Powered by Google Gemini AI · Deployed on Google Cloud Run
-Enhanced with security hardening & Google Cloud integration
+Enhanced with security hardening, accessibility, PWA & Google Cloud integration
 """
 
 import os
@@ -340,7 +340,7 @@ def health():
     return jsonify({
         "status": "ok",
         "service": "electraguide",
-        "version": "3.1",
+        "version": "4.0",
         "ai": "gemini" if gemini_client else "keyword-fallback",
     })
 
@@ -472,6 +472,35 @@ def glossary():
 def tip():
     return jsonify({"tip": random.choice(TIPS)})
 
+# ── API: Election Statistics ───────────────────────────────────────────────────
+
+@app.route("/api/stats", methods=["GET"])
+@rate_limit(max_requests=60, window=60)
+def election_stats():
+    """Return key election statistics for the stats dashboard."""
+    return jsonify({"stats": [
+        {"label": "Registered Voters", "value": "968M+", "icon": "👥", "trend": "+3.2%"},
+        {"label": "Polling Stations", "value": "1.05M", "icon": "🏫", "trend": "+5%"},
+        {"label": "Avg. Turnout 2024", "value": "65.8%", "icon": "📊", "trend": "+1.1%"},
+        {"label": "EVM Machines", "value": "5.5M", "icon": "🗳️", "trend": "Active"},
+        {"label": "States & UTs", "value": "36", "icon": "🗺️", "trend": "All covered"},
+        {"label": "Constituencies", "value": "543", "icon": "📍", "trend": "Lok Sabha"},
+    ]})
+
+# ── API: User Feedback ─────────────────────────────────────────────────────────
+
+@app.route("/api/feedback", methods=["POST"])
+@rate_limit(max_requests=5, window=300)
+def submit_feedback():
+    """Accept user feedback for continuous improvement."""
+    data = request.get_json() or {}
+    rating = data.get("rating", 0)
+    comment = sanitize_input(data.get("comment", ""), max_length=500)
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        return jsonify({"error": "Rating must be 1-5"}), 400
+    logger.info(f"Feedback received: rating={rating}, comment={comment[:50]}")
+    return jsonify({"ok": True, "message": "Thank you for your feedback!"})
+
 # ── API: User session ──────────────────────────────────────────────────────────
 
 @app.route("/api/session", methods=["POST"])
@@ -517,5 +546,5 @@ def too_many_requests(e):
 if __name__ == "__main__":
     port  = int(os.environ.get("PORT", 8080))
     debug = os.environ.get("FLASK_ENV") == "development"
-    logger.info(f"\n🚀 ElectraGuide v3.1 running at http://localhost:{port}\n")
+    logger.info(f"\n🚀 ElectraGuide v4.0 running at http://localhost:{port}\n")
     app.run(host="0.0.0.0", port=port, debug=debug)

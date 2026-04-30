@@ -227,6 +227,7 @@ async function initApp() {
   bindGlossary();
   bindDownload();
   bindMap();
+  bindFeedback();
 }
 
 function bindNavigation() {
@@ -661,12 +662,8 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
 
-/* ── DEADLINE COUNTDOWN ─────────────────────────────────── */
-function updateDeadline() {
-  // Demo: fixed 12 days — in production, fetch from API
-  const el = document.getElementById('dl-count');
-  if (el) el.textContent = '12 days';
-}
+/* ── (updateDeadline moved to bottom with enhanced countdown) ── */
+
 
 /* ── MAP MODAL ──────────────────────────────────────────── */
 function openMap(name, locationQuery) {
@@ -710,17 +707,161 @@ function bindMap() {
   document.getElementById('map-overlay')?.addEventListener('click', closeMap);
 }
 
+/* ── FEEDBACK SYSTEM ───────────────────────────────────── */
+let feedbackRating = 0;
+
+function bindFeedback() {
+  const stars = document.querySelectorAll('#feedback-stars .star-btn');
+  stars.forEach(btn => {
+    btn.addEventListener('click', () => {
+      feedbackRating = parseInt(btn.dataset.rating);
+      stars.forEach((s, i) => s.classList.toggle('active', i < feedbackRating));
+    });
+  });
+
+  document.getElementById('feedback-submit')?.addEventListener('click', async () => {
+    if (feedbackRating === 0) { showToast('Please select a rating'); return; }
+    const comment = document.getElementById('feedback-text')?.value || '';
+    const data = await post('/api/feedback', { rating: feedbackRating, comment });
+    if (data?.ok) {
+      showToast('🎉 Thank you for your feedback!');
+      closeFeedback();
+    }
+  });
+
+  document.getElementById('feedback-close')?.addEventListener('click', closeFeedback);
+  document.getElementById('feedback-overlay')?.addEventListener('click', closeFeedback);
+
+  // Show feedback prompt after 3 minutes of use
+  setTimeout(() => {
+    if (!localStorage.getItem('eg_feedback_shown')) {
+      openFeedback();
+      localStorage.setItem('eg_feedback_shown', '1');
+    }
+  }, 180000);
+}
+
+function openFeedback() {
+  const modal = document.getElementById('feedback-modal');
+  const overlay = document.getElementById('feedback-overlay');
+  if (modal) { modal.style.display = 'block'; setTimeout(() => modal.classList.add('show'), 10); }
+  if (overlay) { overlay.style.display = 'block'; setTimeout(() => overlay.classList.add('show'), 10); }
+}
+
+function closeFeedback() {
+  const modal = document.getElementById('feedback-modal');
+  const overlay = document.getElementById('feedback-overlay');
+  if (modal) modal.classList.remove('show');
+  if (overlay) overlay.classList.remove('show');
+  setTimeout(() => {
+    if (modal) modal.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+  }, 400);
+}
+
+/* ── PWA INSTALL PROMPT ────────────────────────────────── */
+let deferredPrompt = null;
+
+function initPWA() {
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const banner = document.getElementById('pwa-banner');
+    if (banner && !localStorage.getItem('eg_pwa_dismissed')) {
+      banner.style.display = 'flex';
+    }
+  });
+
+  document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') showToast('📲 ElectraGuide installed!');
+      deferredPrompt = null;
+      document.getElementById('pwa-banner').style.display = 'none';
+    }
+  });
+
+  document.getElementById('pwa-dismiss')?.addEventListener('click', () => {
+    document.getElementById('pwa-banner').style.display = 'none';
+    localStorage.setItem('eg_pwa_dismissed', '1');
+  });
+}
+
+/* ── OFFLINE DETECTION ─────────────────────────────────── */
+function initOfflineDetection() {
+  const updateStatus = () => {
+    const dot = document.getElementById('ai-status');
+    if (dot) {
+      dot.title = navigator.onLine ? 'Online — AI Ready' : 'Offline Mode';
+      dot.style.opacity = navigator.onLine ? '1' : '0.4';
+    }
+    if (!navigator.onLine) showToast('📡 You\'re offline — some features may be limited');
+  };
+  window.addEventListener('online', () => { showToast('✅ Back online!'); updateStatus(); });
+  window.addEventListener('offline', updateStatus);
+  updateStatus();
+}
+
+/* ── DYNAMIC DEADLINE COUNTDOWN ────────────────────────── */
+function updateDeadline() {
+  const el = document.getElementById('dl-count');
+  if (!el) return;
+  // Calculate days until a realistic deadline (30 days from now as demo)
+  const deadline = new Date();
+  deadline.setDate(deadline.getDate() + 12);
+  const now = new Date();
+  const diff = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+  el.textContent = diff + ' days';
+  // Update urgency color
+  if (diff <= 5) el.style.color = 'var(--warn)';
+  else if (diff <= 10) el.style.color = 'var(--amber)';
+}
+
+/* ── SHARE VOTING PLAN ─────────────────────────────────── */
+function sharePlan() {
+  const done = State.checklist.filter(i => i.done).length;
+  const total = State.checklist.length;
+  const pct = Math.round((done / total) * 100);
+  const text = `🗳️ I'm ${pct}% ready to vote! Using ElectraGuide to track my election readiness. #ElectraGuide #IndianElections #VoteReady`;
+
+  if (navigator.share) {
+    navigator.share({ title: 'ElectraGuide — My Voting Readiness', text, url: window.location.href })
+      .catch(() => {});
+  } else {
+    navigator.clipboard?.writeText(text).then(() => showToast('📋 Copied to clipboard!'));
+  }
+}
+
+/* ── KEYBOARD SHORTCUTS ────────────────────────────────── */
+function initKeyboardNav() {
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    switch(e.key) {
+      case '1': switchTab('home'); break;
+      case '2': switchTab('checklist'); break;
+      case '3': switchTab('chat'); document.getElementById('chat-input')?.focus(); break;
+      case '4': switchTab('booth'); break;
+      case '5': switchTab('glossary'); break;
+      case '?': openFeedback(); break;
+    }
+  });
+}
+
 /* ── BOOT ───────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   initSplash();
   updateDeadline();
+  initPWA();
+  initOfflineDetection();
+  initKeyboardNav();
 
   // If returning user, skip to app
   const saved = localStorage.getItem('eg_user');
   if (saved) {
     try {
       State.user = JSON.parse(saved);
-      // Still show splash but "skip" is pre-populated
     } catch (_) {}
   }
 });
+

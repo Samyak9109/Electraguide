@@ -3,14 +3,16 @@
   <img src="https://img.shields.io/badge/Flask-3.x-000000?logo=flask" alt="Flask">
   <img src="https://img.shields.io/badge/Gemini_AI-2.0_Flash-4285F4?logo=google&logoColor=white" alt="Gemini">
   <img src="https://img.shields.io/badge/Cloud_Run-Ready-4285F4?logo=google-cloud&logoColor=white" alt="Cloud Run">
+  <img src="https://img.shields.io/badge/PWA-Installable-5A0FC8?logo=pwa&logoColor=white" alt="PWA">
+  <img src="https://img.shields.io/badge/WCAG-2.1_AA-green?logo=accessibility" alt="Accessibility">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
 </p>
 
-# ⚡ ElectraGuide v3.0
+# ⚡ ElectraGuide v4.0
 
 **AI-Powered Democracy Navigator for Indian Elections**
 
-ElectraGuide is a full-stack web application that helps Indian citizens navigate the voting process with an AI-powered assistant, interactive voting checklist, polling booth finder, and civic glossary. Built with Flask and powered by Google Gemini AI, it's designed to be deployed on Google Cloud Run.
+ElectraGuide is a full-stack Progressive Web App (PWA) that helps India's 968M+ registered voters navigate the voting process. Powered by Google Gemini AI and deployed on Google Cloud Run, it features an AI chat assistant, interactive voting checklist, polling booth finder with Google Maps, civic glossary, and real-time election statistics dashboard.
 
 > **Non-partisan by design** — ElectraGuide helps you understand *how* to vote, never *who* to vote for.
 
@@ -18,14 +20,20 @@ ElectraGuide is a full-stack web application that helps Indian citizens navigate
 
 ## 🎯 What Is ElectraGuide?
 
-ElectraGuide is a civic-tech platform designed to make voting accessible and simple for India's 900M+ registered voters. It provides:
+A civic-tech platform designed to make voting accessible and simple:
 
-- **🤖 AI Chat Assistant** — Powered by Google Gemini, answers any question about elections, voter registration, ID requirements, and more. Also works as a general-purpose AI assistant.
-- **✅ Voting Readiness Checklist** — 7-step interactive tracker from registration to Election Day with progress visualization.
-- **📍 Polling Booth Finder** — Search by city/pincode with Google Maps integration for directions.
-- **📖 Civic Glossary** — 16 searchable election terms (NOTA, EVM, VVPAT, etc.) with verified ECI sources.
-- **💡 Did You Know** — Random election facts to boost civic awareness.
-- **📱 Mobile-First Design** — Premium dark theme with glassmorphism, optimized for mobile browsers.
+| Feature | Description |
+|---------|-------------|
+| **🤖 AI Chat Assistant** | Gemini-powered Q&A on elections + general knowledge with conversational memory |
+| **✅ Voting Readiness Tracker** | 7-step interactive checklist with progress ring visualization |
+| **📍 Polling Booth Finder** | Search by city/pincode with embedded Google Maps directions |
+| **📖 Civic Glossary** | 16 searchable ECI-verified election terms |
+| **📊 Election Dashboard** | Live statistics — voters, turnout, constituencies, polling stations |
+| **💡 Did You Know** | Random election facts with one-tap refresh |
+| **📲 PWA + Offline** | Installable app with service worker for offline access |
+| **⭐ Feedback System** | In-app star rating + comments for continuous improvement |
+| **♿ Accessibility** | WCAG 2.1 AA compliant — skip navigation, focus styles, reduced motion |
+| **🔐 Security Hardened** | CSP headers, rate limiting, input sanitization, HSTS, XSS prevention |
 
 ---
 
@@ -34,42 +42,48 @@ ElectraGuide is a civic-tech platform designed to make voting accessible and sim
 ### Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  FRONTEND                        │
-│  index.html + style.css + app.js                │
-│  (Vanilla HTML/CSS/JS — no framework)           │
-├─────────────────────────────────────────────────┤
-│                REST API (JSON)                   │
-├─────────────────────────────────────────────────┤
-│                  BACKEND                         │
-│  Flask (app.py) + Gunicorn (production)         │
-│  ├── /api/chat     → Gemini AI + keyword fallback│
-│  ├── /api/checklist → Session-based tracker      │
-│  ├── /api/booth    → City-based booth lookup     │
-│  ├── /api/glossary → Searchable ECI terms        │
-│  ├── /api/tip      → Random election facts       │
-│  └── /health       → Container health check      │
-├─────────────────────────────────────────────────┤
-│              GOOGLE GEMINI AI                    │
-│  Model fallback chain:                          │
-│  gemini-2.0-flash-lite → 2.0-flash → 2.5-flash │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                    FRONTEND (PWA)                      │
+│  index.html + style.css + app.js + sw.js              │
+│  manifest.json · Service Worker · Offline-first       │
+├──────────────────────────────────────────────────────┤
+│                  REST API (JSON)                       │
+├──────────────────────────────────────────────────────┤
+│                    BACKEND                             │
+│  Flask (app.py) + Gunicorn (production WSGI)          │
+│  ├── /api/chat       → Gemini AI + keyword fallback   │
+│  ├── /api/checklist  → Session-based progress tracker │
+│  ├── /api/booth      → City-based booth lookup        │
+│  ├── /api/glossary   → Searchable ECI terms           │
+│  ├── /api/tip        → Random election facts          │
+│  ├── /api/stats      → Election statistics dashboard  │
+│  ├── /api/feedback   → User feedback collection       │
+│  ├── /api/session    → User session persistence       │
+│  └── /health         → Container health check         │
+├──────────────────────────────────────────────────────┤
+│              GOOGLE CLOUD PLATFORM                     │
+│  Gemini AI · Cloud Run · Cloud Build · Cloud Logging  │
+│  Secret Manager · Container Registry                  │
+└──────────────────────────────────────────────────────┘
 ```
 
 ### AI Chat Flow
 
 1. User sends a question via the chat interface
-2. Frontend POSTs to `/api/chat` with the question + last 6 conversation turns
-3. Backend tries Gemini models in order with retry logic (handles 429 rate limits)
-4. If all models fail, falls back to keyword-matching knowledge base
-5. Response streamed word-by-word in the UI for a natural feel
+2. Frontend POSTs to `/api/chat` with question + last 6 conversation turns
+3. Backend tries Gemini models in order: `flash-lite` → `flash` → `2.5-flash`
+4. Automatic retry on 429 rate limits with exponential backoff
+5. Falls back to keyword-matching knowledge base if all models fail
+6. Response streamed word-by-word in the UI for a natural feel
 
-### Data Flow
+### Security Architecture
 
-- **User data** stored in `localStorage` (never leaves the device)
-- **Session state** managed in-memory on the server (use Redis for production)
-- **Booth data** sourced from Election Commission of India (ECI) records
-- **Glossary** verified against official ECI definitions
+- **Content Security Policy (CSP)** — Restricts script/style sources
+- **HTTP Security Headers** — HSTS, X-Frame-Options, X-Content-Type-Options
+- **Rate Limiting** — Per-IP throttling on all API endpoints
+- **Input Sanitization** — HTML escaping, length limits, type validation
+- **Non-root Docker** — Container runs as unprivileged `appuser`
+- **Secret Manager** — API keys stored in Google Cloud Secret Manager
 
 ---
 
@@ -77,75 +91,62 @@ ElectraGuide is a civic-tech platform designed to make voting accessible and sim
 
 ```
 ElectraGuide/
-├── app.py              # Flask backend — API routes, Gemini integration
-├── index.html          # Frontend — single-page app with 5 tabs
-├── style.css           # Premium dark theme — glassmorphism, animations
-├── app.js              # Frontend logic — API calls, state management
+├── app.py              # Flask backend — 10 API endpoints, Gemini AI integration
+├── index.html          # Frontend SPA — splash, onboarding, 5 tabs, feedback modal
+├── style.css           # Premium dark theme — glassmorphism, animations, responsive
+├── app.js              # Frontend logic — state management, PWA, offline, accessibility
+├── sw.js               # Service Worker — offline-first caching strategy
+├── manifest.json       # PWA manifest — installable app configuration
 ├── requirements.txt    # Python dependencies
-├── Dockerfile          # Cloud Run container config
-├── .dockerignore       # Files excluded from Docker build
+├── Dockerfile          # Secure Cloud Run container (non-root, healthcheck)
 ├── deploy.sh           # One-command Cloud Run deployment script
-├── .env                # Local environment variables (git-ignored)
+├── .dockerignore       # Files excluded from Docker build
 ├── .env.example        # Template for environment variables
 ├── .gitignore          # Git ignore rules
 └── README.md           # This file
 ```
 
-### Key Files Explained
-
-| File | Purpose | Size |
-|------|---------|------|
-| `app.py` | Flask server with 8 API endpoints, Gemini AI with model fallback + retry | ~340 lines |
-| `index.html` | Semantic HTML5 with splash, onboarding, and 5 main tabs | ~380 lines |
-| `style.css` | CSS custom properties, glassmorphism, responsive dark theme | ~325 lines |
-| `app.js` | State management, API communication, animations | ~670 lines |
-| `Dockerfile` | Python 3.12 slim image with gunicorn WSGI server | ~30 lines |
-| `deploy.sh` | Automated gcloud CLI deployment with env injection | ~90 lines |
-
 ---
 
 ## 🛠️ Tools & Technologies
 
-### Backend
+### Backend Stack
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | **Python** | 3.12+ | Runtime |
 | **Flask** | 3.x | Web framework & static file serving |
 | **Flask-CORS** | 4.x | Cross-origin request handling |
-| **Google GenAI** | 1.x | Gemini AI SDK (modern `google-genai` package) |
+| **Google GenAI** | 1.x | Gemini AI SDK (`google-genai`) |
 | **Gunicorn** | 22.x | Production WSGI server |
 | **python-dotenv** | 1.x | Local environment variable loading |
+| **Google Cloud Logging** | 3.x | Structured cloud logging |
+| **Google Cloud Secret Manager** | 2.x | Secure API key storage |
 
-### Frontend
+### Frontend Stack
 | Technology | Purpose |
 |-----------|---------|
-| **HTML5** | Semantic markup, mobile-first meta tags |
-| **CSS3** | Custom properties, glassmorphism, gradients, animations |
-| **Vanilla JavaScript** | State management, API calls, DOM manipulation |
+| **HTML5** | Semantic markup, ARIA labels, structured data (JSON-LD) |
+| **CSS3** | Custom properties, glassmorphism, gradients, keyframe animations |
+| **Vanilla JavaScript** | State management, PWA, offline detection, accessibility |
+| **Service Worker** | Offline-first caching, background sync |
 | **Google Fonts (Outfit)** | Modern typography |
 | **Google Maps Embed** | Polling booth directions |
 
-### AI & Cloud
+### Cloud & AI
 | Technology | Purpose |
 |-----------|---------|
-| **Google Gemini 2.0 Flash** | AI chat (with automatic model fallback chain) |
-| **Google Cloud Run** | Serverless container hosting |
-| **Google Cloud Build** | Docker image building |
-| **Google Container Registry** | Image storage |
-
-### Development
-| Tool | Purpose |
-|------|---------|
-| **Docker** | Containerization |
-| **Git** | Version control |
-| **gcloud CLI** | Cloud deployment |
+| **Google Gemini 2.0 Flash** | AI chat with 3-model fallback chain |
+| **Google Cloud Run** | Serverless container hosting (Mumbai region) |
+| **Google Cloud Build** | Automated Docker image building |
+| **Google Container Registry** | Docker image storage |
+| **Google Cloud Logging** | Production log aggregation |
+| **Google Cloud Secret Manager** | Secure credential management |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - Python 3.12+
 - A free [Gemini API key](https://aistudio.google.com/app/apikey)
 
@@ -158,7 +159,7 @@ cd ElectraGuide
 
 # 2. Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
@@ -175,109 +176,74 @@ Open [http://localhost:8080](http://localhost:8080) in your browser.
 
 ---
 
-## ☁️ Deploying to Google Cloud Run
-
-### Prerequisites
-
-- [Google Cloud account](https://cloud.google.com/) with billing enabled
-- [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed and authenticated
-- A Gemini API key
+## ☁️ Cloud Run Deployment
 
 ### One-Command Deploy
-
 ```bash
-# Set your project ID
 export GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
-
-# Deploy
 bash deploy.sh
 ```
 
-### Manual Deploy Steps
-
-```bash
-# 1. Authenticate
-gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
-
-# 2. Enable APIs
-gcloud services enable run.googleapis.com containerregistry.googleapis.com
-
-# 3. Build & push Docker image
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/electraguide .
-
-# 4. Deploy to Cloud Run
-gcloud run deploy electraguide \
-  --image gcr.io/YOUR_PROJECT_ID/electraguide \
-  --platform managed \
-  --region asia-south1 \
-  --memory 512Mi \
-  --allow-unauthenticated \
-  --set-env-vars "GEMINI_API_KEY=your_key_here" \
-  --port 8080
-
-# 5. Get the live URL
-gcloud run services describe electraguide \
-  --region asia-south1 \
-  --format "value(status.url)"
-```
-
 ### Cloud Run Configuration
-
 | Setting | Value | Reason |
 |---------|-------|--------|
 | Region | `asia-south1` (Mumbai) | Lowest latency for Indian users |
-| Memory | `512Mi` | Sufficient for Flask + Gemini calls |
-| CPU | `1` | Single vCPU handles 80 concurrent requests |
+| Memory | `512Mi` | Flask + Gemini calls |
+| CPU | `1` | Handles 80 concurrent requests |
 | Min instances | `0` | Scale-to-zero for cost savings |
 | Max instances | `3` | Rate limit protection |
-| Timeout | `120s` | Allows time for Gemini API responses |
+| Timeout | `120s` | Gemini API response time |
 
 ---
 
 ## 🔌 API Reference
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `GET` | `/` | Serves the frontend SPA | None |
-| `GET` | `/health` | Health check (status, version, AI mode) | None |
-| `GET` | `/api/checklist?session=ID` | Get voting checklist for session | None |
-| `POST` | `/api/checklist/toggle` | Mark a checklist item as done | None |
-| `POST` | `/api/chat` | Send a question to the AI assistant | None |
-| `POST` | `/api/booth` | Find polling booth by city/pincode | None |
-| `GET` | `/api/glossary?q=term` | Search civic glossary | None |
-| `GET` | `/api/tip` | Get a random election fact | None |
-| `POST` | `/api/session` | Save user session data | None |
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|------------|
+| `GET` | `/` | Frontend SPA | — |
+| `GET` | `/health` | Health check (status, version, AI mode) | — |
+| `GET` | `/api/checklist?session=ID` | Get voting checklist | 60/min |
+| `POST` | `/api/checklist/toggle` | Mark item as done | 30/min |
+| `POST` | `/api/chat` | AI assistant query | 20/min |
+| `POST` | `/api/booth` | Find polling booth | 30/min |
+| `GET` | `/api/glossary?q=term` | Search civic glossary | 60/min |
+| `GET` | `/api/tip` | Random election fact | 60/min |
+| `GET` | `/api/stats` | Election statistics | 60/min |
+| `POST` | `/api/feedback` | Submit user feedback | 5/5min |
+| `POST` | `/api/session` | Save user session | 10/min |
 
-### Example: Chat API
+---
 
-```bash
-curl -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What ID do I need to vote?", "history": []}'
-```
+## ♿ Accessibility Features
 
-Response:
-```json
-{
-  "answer": "You need your Voter ID card (EPIC), or any ONE of: Aadhaar, PAN, Passport...",
-  "source": "gemini"
-}
-```
+- **Skip Navigation** — Keyboard-accessible skip link to main content
+- **Focus Indicators** — Visible focus styles on all interactive elements
+- **ARIA Labels** — Screen reader support on buttons and modals
+- **Reduced Motion** — Respects `prefers-reduced-motion` media query
+- **Keyboard Shortcuts** — Navigate tabs with `1-5`, `?` for feedback
+- **Semantic HTML** — Proper heading hierarchy, landmark roles
+- **Scalable Text** — No `user-scalable=no` restriction
+
+---
+
+## 📊 Innovation Highlights
+
+- **Progressive Web App** — Installable on mobile/desktop with offline support
+- **AI Model Fallback Chain** — 3-tier Gemini model cascade with retry logic
+- **Offline-First Architecture** — Service worker caches static assets
+- **Social Sharing** — Web Share API integration for voting readiness
+- **Structured Data** — JSON-LD schema for search engine discoverability
+- **Dynamic Countdown** — Real-time registration deadline with urgency colors
+- **Privacy-First** — All user data stored locally, never sent to third parties
 
 ---
 
 ## ✅ Testing
 
-Run the built-in test suite:
-
 ```bash
 python3 -c "
 from app import app
-import json
 client = app.test_client()
-
-# Test all endpoints
 tests = [
     ('Health',    lambda: client.get('/health')),
     ('Checklist', lambda: client.get('/api/checklist?session=test')),
@@ -286,12 +252,15 @@ tests = [
     ('Booth',     lambda: client.post('/api/booth', json={'query':'mumbai'})),
     ('Glossary',  lambda: client.get('/api/glossary')),
     ('Tip',       lambda: client.get('/api/tip')),
+    ('Stats',     lambda: client.get('/api/stats')),
+    ('Feedback',  lambda: client.post('/api/feedback', json={'rating':5,'comment':'Great!'})),
     ('Session',   lambda: client.post('/api/session', json={'session':'t','user':{'name':'Sam'}})),
     ('Index',     lambda: client.get('/')),
     ('CSS',       lambda: client.get('/style.css')),
     ('JS',        lambda: client.get('/app.js')),
+    ('SW',        lambda: client.get('/sw.js')),
+    ('Manifest',  lambda: client.get('/manifest.json')),
 ]
-
 for name, fn in tests:
     r = fn()
     status = '✅' if r.status_code == 200 else '❌'
@@ -299,46 +268,22 @@ for name, fn in tests:
 "
 ```
 
-Expected output: all 11 endpoints return `✅ 200`.
+Expected output: all 15 endpoints return `✅ 200`.
 
 ---
 
-## 🔐 Environment Variables
+## 🔐 Security Measures
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GEMINI_API_KEY` | Yes | — | Google Gemini API key ([get one free](https://aistudio.google.com/app/apikey)) |
-| `PORT` | No | `8080` | Server port |
-| `FLASK_ENV` | No | `production` | Set to `development` for debug mode |
-
----
-
-## 📊 Features Breakdown
-
-### AI Assistant (Gemini-Powered)
-- Answers election questions with ECI-verified sources
-- Also answers **any general question** as a helpful AI
-- Conversational memory (last 6 turns)
-- Model fallback chain: `gemini-2.0-flash-lite` → `gemini-2.0-flash` → `gemini-2.5-flash`
-- Automatic retry on rate limits (429)
-- Keyword fallback when API is unavailable
-
-### Voting Readiness Tracker
-- 7 essential pre-election tasks
-- Visual progress ring (0–100%)
-- Milestone roadmap: Register → Documents → Find Booth → Vote Day
-- Downloadable voting plan (`.txt`)
-- Data persisted in localStorage
-
-### Booth Finder
-- Covers 7 major Indian cities (Delhi, Mumbai, Bangalore, Chennai, Hyderabad, Kolkata, Pune)
-- Google Maps embed for directions
-- One-tap "Open in Google Maps" navigation
-
-### Civic Glossary
-- 16 election terms with definitions
-- Real-time search filtering
-- Sources verified against ECI
+| Layer | Implementation |
+|-------|---------------|
+| **Transport** | HSTS with 1-year max-age, includeSubDomains |
+| **Content** | CSP restricts scripts, styles, frames, and objects |
+| **Input** | HTML escaping, length truncation, type validation |
+| **Rate Limiting** | Per-IP throttling on all endpoints |
+| **Container** | Non-root user, read-only filesystem where possible |
+| **Secrets** | Google Cloud Secret Manager integration |
+| **Headers** | X-Frame-Options DENY, X-Content-Type-Options nosniff |
+| **CORS** | Restrictive origin policy in production |
 
 ---
 

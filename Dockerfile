@@ -1,4 +1,4 @@
-# ── ElectraGuide v3.1 — Secure Cloud Run Dockerfile ──────────────────────────
+# ── ElectraGuide v4.0 — Secure Cloud Run Dockerfile ──────────────────────────
 FROM python:3.12-slim
 
 # Security: Run as non-root user

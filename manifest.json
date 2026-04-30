@@ -1,0 +1,16 @@
+{
+  "name": "ElectraGuide — AI Democracy Navigator",
+  "short_name": "ElectraGuide",
+  "description": "AI-powered election assistant for Indian voters. Get voting guidance, find polling booths, and access civic information.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "en-IN",
+  "categories": ["education", "government", "utilities"],
+  "icons": [
+    { "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><text x='50' y='68' text-anchor='middle' font-size='55'>⚡</text></svg>", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

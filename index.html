@@ -2,18 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#07070f">
-  <meta name="description" content="ElectraGuide — AI-powered election assistant. Your democracy navigator.">
-  <title>ElectraGuide — Your Democracy Navigator</title>
+  <meta name="theme-color" content="#0f0f1a">
+  <meta name="description" content="ElectraGuide — AI-powered election assistant helping 900M+ Indian voters navigate registration, polling booths, and civic rights.">
+  <meta name="keywords" content="voter guide, Indian elections, polling booth finder, voter ID, ECI, NOTA, election assistant">
+  <meta name="author" content="Samyak Jain">
+  <meta property="og:title" content="ElectraGuide — AI Democracy Navigator">
+  <meta property="og:description" content="AI-powered election assistant for Indian voters. Find booths, check voter readiness, get instant answers.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_IN">
+  <meta name="robots" content="index, follow">
+  <title>ElectraGuide — AI-Powered Democracy Navigator for Indian Elections</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"WebApplication","name":"ElectraGuide","description":"AI-powered election assistant for Indian voters","applicationCategory":"GovernmentApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"INR"},"author":{"@type":"Person","name":"Samyak Jain"}}
+  </script>
 </head>
 <body>
+<a href="#app-main" class="skip-link" id="skip-nav">Skip to main content</a>
 
 <!-- ═══════════════════════════════════════════════════
      SPLASH SCREEN
@@ -265,7 +277,18 @@
           <p class="tip-body" id="tip-text">Loading…</p>
         </div>
 
-        <!-- Stats -->
+        <!-- Election Stats Dashboard -->
+        <div class="section-card glass-card" id="stats-dashboard">
+          <div class="section-label"><span>📊 India Election Dashboard</span></div>
+          <div class="stats-grid" id="stats-grid">
+            <div class="stat-card"><span class="stat-n">968M+</span><span class="stat-l">Registered Voters</span></div>
+            <div class="stat-card"><span class="stat-n">1.05M</span><span class="stat-l">Polling Stations</span></div>
+            <div class="stat-card"><span class="stat-n">65.8%</span><span class="stat-l">Avg. Turnout</span></div>
+            <div class="stat-card"><span class="stat-n">543</span><span class="stat-l">Constituencies</span></div>
+          </div>
+        </div>
+
+        <!-- Stats Strip -->
         <div class="stats-strip glass-card">
           <div class="stat-item"><span class="stat-n">900M+</span><span class="stat-l">Voters</span></div>
           <div class="stat-sep"></div>
@@ -454,6 +477,43 @@
 <!-- Toast -->
 <div id="toast" class="toast"></div>
 
+<!-- Feedback Modal -->
+<div id="feedback-overlay" class="map-overlay" style="display:none"></div>
+<div id="feedback-modal" class="feedback-modal" style="display:none" role="dialog" aria-label="Send Feedback">
+  <div class="feedback-header">
+    <h3>Rate ElectraGuide</h3>
+    <button class="map-close-btn" id="feedback-close">✕</button>
+  </div>
+  <div class="feedback-body">
+    <div class="feedback-stars" id="feedback-stars">
+      <button class="star-btn" data-rating="1" aria-label="1 star">★</button>
+      <button class="star-btn" data-rating="2" aria-label="2 stars">★</button>
+      <button class="star-btn" data-rating="3" aria-label="3 stars">★</button>
+      <button class="star-btn" data-rating="4" aria-label="4 stars">★</button>
+      <button class="star-btn" data-rating="5" aria-label="5 stars">★</button>
+    </div>
+    <textarea id="feedback-text" class="feedback-textarea" placeholder="Tell us what you think…" maxlength="500" rows="3"></textarea>
+    <button class="btn-cta" id="feedback-submit" style="padding:14px;font-size:15px">Submit Feedback</button>
+  </div>
+</div>
+
+<!-- PWA Install Banner -->
+<div id="pwa-banner" class="pwa-banner" style="display:none">
+  <span>📲 Install ElectraGuide for offline access</span>
+  <button class="btn-urgent" id="pwa-install-btn">Install</button>
+  <button class="pwa-dismiss" id="pwa-dismiss">✕</button>
+</div>
+
 <script src="app.js"></script>
+<script>
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('✅ SW registered:', reg.scope))
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
+</script>
 </body>
 </html>
