@@ -11,7 +11,7 @@ set -e  # Exit on any error
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-electraguide-494807}"
 SERVICE_NAME="electraguide"
 REGION="asia-south1"          # Mumbai — closest to India
-IMAGE="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
+IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${SERVICE_NAME}"
 MEMORY="512Mi"
 CPU="1"
 CONCURRENCY="80"
@@ -39,10 +39,20 @@ echo "► Setting GCP project..."
 gcloud config set project "$PROJECT_ID"
 
 # ── STEP 2: Enable required APIs ──────────────────────────────
-echo "► Enabling Cloud Run & Container Registry APIs..."
+echo "► Enabling Cloud Run & Artifact Registry APIs..."
 gcloud services enable \
   run.googleapis.com \
-  containerregistry.googleapis.com \
+  artifactregistry.googleapis.com \
+  cloudbuild.googleapis.com \
+  --quiet
+
+# ── STEP 2b: Ensure Artifact Registry repo exists ─────────────
+gcloud artifacts repositories describe cloud-run-source-deploy \
+  --location="$REGION" 2>/dev/null || \
+gcloud artifacts repositories create cloud-run-source-deploy \
+  --repository-format=docker \
+  --location="$REGION" \
+  --description="ElectraGuide Docker images" \
   --quiet
 
 # ── STEP 3: Build & push Docker image ─────────────────────────
